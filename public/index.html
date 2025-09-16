@@ -8,65 +8,53 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configure OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// OpenAI client
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Serve static frontend
+// ✅ Serve static files from public
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ✅ Make sure root route sends index.html explicitly
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Simple health check
+// Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Updated AI endpoint to match your new HTML and request better formatting
-app.get('/ai', async (req, res) => {
-  const prompt = req.query.prompt || "Tell me about this market.";
+// API endpoint
+app.post('/api/submit_idea', async (req, res) => {
+  const { idea } = req.body || {};
+  if (!idea) return res.status(400).json({ error: 'No idea provided' });
+
   try {
-    // Ask OpenAI for structured HTML response
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: `You are a helpful market research assistant. 
-Format your response in HTML. Use <h2> or <h3> for subtitles/categories, and <p> for each paragraph. 
-Include clear sections: Market Overview, Demand, Competition, and Pricing Trends.`
-        },
-        { role: "user", content: prompt }
+        { role: "system", content: "You are a helpful market research assistant." },
+        { role: "user", content: idea }
       ]
     });
 
-    // Text reply from AI (HTML string)
-    const replyHTML = completion.choices[0].message.content;
+    res.json({ reply: completion.choices[0].message.content });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error contacting OpenAI" });
+  }
+});
 
-    // Temporary sample listings to test front end
-    const listings = [
-      {
-        title: "Sample Item 1",
-        price: "$25.00",
-        image: "https://via.placeholder.com/100",
-        url: "https://example.com/item1"
-      },
-      {
-        title: "Sample Item 2",
-        price: "$40.00",
-        image: "https://via.placeholder.com/100",
-        url: "https://example.com/item2"
-      },
-      {
-        title: "Sample Item 3",
-        price: "$60.00",
-        image: "https://via.placeholder.com/100",
-        url: "https://example.com/item3"
-      }
-    ];
-
-    res.json({ reply: replyHTML, listings });
+// Optional GET endpoint for AI
+app.get('/ai', async (req, res) => {
+  const prompt = req.query.prompt || "Tell me about this market.";
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a helpful market research assistant." },
+        { role: "user", content: prompt }
+      ]
+    });
+    res.json({ reply: completion.choices[0].message.content });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error contacting OpenAI");
