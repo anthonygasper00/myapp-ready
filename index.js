@@ -2,17 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
-
-// 🟢 Add OpenAI import:
 const OpenAI = require('openai');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🟢 Configure OpenAI client
+// Configure OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY // from Render env variables
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Serve static frontend
@@ -25,7 +23,7 @@ app.get('/', (req, res) => {
 // Simple health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// 🟢 UPDATED AI endpoint – use POST /api/submit_idea
+// 🟢 Updated API endpoint — now uses OpenAI
 app.post('/api/submit_idea', async (req, res) => {
   const { idea } = req.body || {};
   if (!idea) {
@@ -36,17 +34,34 @@ app.post('/api/submit_idea', async (req, res) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a helpful market research assistant. Provide the market overview, trends, and potential competitors for a given idea." },
-        { role: "user", content: `Analyze this idea: ${idea}` }
+        { role: "system", content: "You are a helpful market research assistant. Analyze the given idea and describe its market potential." },
+        { role: "user", content: idea }
       ]
     });
 
     const reply = completion.choices[0].message.content;
-    res.json({ analysis: reply });
-
+    res.json({ reply });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Error contacting OpenAI" });
+  }
+});
+
+// Optional separate GET endpoint
+app.get('/ai', async (req, res) => {
+  const prompt = req.query.prompt || "Tell me about this market.";
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a helpful market research assistant." },
+        { role: "user", content: prompt }
+      ]
+    });
+    res.json({ reply: completion.choices[0].message.content });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error contacting OpenAI");
   }
 });
 
