@@ -1,65 +1,131 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
-const OpenAI = require('openai');
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Market Research Assistant</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 40px;
+      background-color: #f5f5dc; /* beige background */
+      color: #333;
+      line-height: 1.6;
+    }
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+    h1, h2, h3 {
+      color: #2c2c2c;
+      text-align: center;
+    }
 
-// OpenAI client
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    textarea {
+      width: 100%;
+      height: 120px;
+      font-size: 16px;
+      border-radius: 6px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
 
-// ✅ Serve static files from public
-app.use(express.static(path.join(__dirname, 'public')));
+    button {
+      padding: 10px 18px;
+      font-size: 16px;
+      background-color: #4a4a4a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
-// ✅ Make sure root route sends index.html explicitly
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+    button:hover {
+      background-color: #333;
+    }
 
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+    #response-container {
+      margin-top: 20px;
+      background: #fffaf0;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 
-// API endpoint
-app.post('/api/submit_idea', async (req, res) => {
-  const { idea } = req.body || {};
-  if (!idea) return res.status(400).json({ error: 'No idea provided' });
+    .listing {
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a helpful market research assistant." },
-        { role: "user", content: idea }
-      ]
+    .listing img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .listing-details {
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 20px;
+      color: #444;
+    }
+
+    .section-text {
+      font-size: 16px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Market Research Assistant</h1>
+  <p style="text-align:center;">Describe an item or market you’re interested in. The AI will return analysis, listings, and average prices.</p>
+
+  <textarea id="idea" placeholder="Type your idea here..."></textarea><br/>
+  <button id="send">Analyze</button>
+
+  <div id="response-container">
+    <h3>Response</h3>
+    <div id="out">—</div>
+  </div>
+
+  <script>
+    document.getElementById('send').addEventListener('click', async () => {
+      const idea = document.getElementById('idea').value;
+
+      try {
+        // Call your AI endpoint:
+        const aiRes = await fetch(`/ai?prompt=${encodeURIComponent(idea)}`);
+        const aiData = await aiRes.json();
+
+        // Show formatted HTML response
+        const out = document.getElementById('out');
+        out.innerHTML = aiData.reply || '<p>No reply</p>';
+
+        // If AI returns JSON with listings, loop through and render:
+        if (aiData.listings && Array.isArray(aiData.listings)) {
+          aiData.listings.forEach(item => {
+            out.innerHTML += `
+              <div class="listing">
+                <img src="${item.image}" alt="${item.title}">
+                <div class="listing-details">
+                  <div class="section-title">${item.title}</div>
+                  <div class="section-text">Price: ${item.price}</div>
+                  <a href="${item.url}" target="_blank">View Listing</a>
+                </div>
+              </div>
+            `;
+          });
+        }
+      } catch (err) {
+        document.getElementById('out').textContent = 'Error: ' + err.message;
+      }
     });
-
-    res.json({ reply: completion.choices[0].message.content });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error contacting OpenAI" });
-  }
-});
-
-// Optional GET endpoint for AI
-app.get('/ai', async (req, res) => {
-  const prompt = req.query.prompt || "Tell me about this market.";
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a helpful market research assistant." },
-        { role: "user", content: prompt }
-      ]
-    });
-    res.json({ reply: completion.choices[0].message.content });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error contacting OpenAI");
-  }
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server listening on port ${port}`));
+  </script>
+</body>
+</html>
