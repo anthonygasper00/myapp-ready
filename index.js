@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 // Simple health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Updated POST endpoint — includes image + score
+// Updated POST endpoint — includes image + score, handles errors
 app.post('/api/submit_idea', async (req, res) => {
   const { idea } = req.body || {};
   if (!idea) {
@@ -31,7 +31,7 @@ app.post('/api/submit_idea', async (req, res) => {
   }
 
   try {
-    // Ask OpenAI for structured HTML + score
+    // 1. Text analysis first
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -48,26 +48,31 @@ app.post('/api/submit_idea', async (req, res) => {
       ]
     });
 
-    let replyHTML = completion.choices[0].message.content;
+    let replyHTML = completion.choices[0].message.content || '';
 
     // Extract SCORE:[number]
     let scoreMatch = replyHTML.match(/SCORE:(\d{1,3})/i);
     let marketScore = scoreMatch ? parseInt(scoreMatch[1]) : null;
-    if (scoreMatch) {
-      // Remove SCORE:[number] from HTML content
-      replyHTML = replyHTML.replace(scoreMatch[0], '');
+    if (scoreMatch) replyHTML = replyHTML.replace(scoreMatch[0], '');
+
+    // 2. Generate image but handle errors
+    let imageUrl = "https://via.placeholder.com/512x512.png?text=No+Image";
+    try {
+      const imagePrompt = `An illustrative infographic of the market for: ${idea}`;
+      const imageGen = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: imagePrompt,
+        size: "512x512"
+      });
+      if (imageGen.data && imageGen.data[0] && imageGen.data[0].url) {
+        imageUrl = imageGen.data[0].url;
+      }
+    } catch (imageErr) {
+      console.error("Image generation failed:", imageErr.message);
+      // fallback image already set
     }
 
-    // Generate an image related to the market idea:
-    const imagePrompt = `An illustrative infographic of the market for: ${idea}`;
-    const imageGen = await openai.images.generate({
-      model: "gpt-image-1",
-      prompt: imagePrompt,
-      size: "512x512" // ✅ Removed response_format
-    });
-    const imageUrl = imageGen.data[0].url;
-
-    // Temporary sample listings
+    // 3. Sample listings
     const listings = [
       {
         title: "Sample Item 1",
@@ -89,14 +94,11 @@ app.post('/api/submit_idea', async (req, res) => {
       }
     ];
 
-    res.json({
-      reply: replyHTML,
-      listings,
-      marketScore,
-      imageUrl
-    });
+    // 4. Send response back
+    res.json({ reply: replyHTML, listings, marketScore, imageUrl });
+
   } catch (err) {
-    console.error(err);
+    console.error("Main error:", err.message);
     res.status(500).json({ error: "Error contacting OpenAI" });
   }
 });
