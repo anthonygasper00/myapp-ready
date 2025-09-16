@@ -58,16 +58,14 @@ app.post('/api/submit_idea', async (req, res) => {
       replyHTML = replyHTML.replace(scoreMatch[0], '');
     }
 
-    // Generate an image related to the market idea (base64):
+    // Generate an image related to the market idea:
     const imagePrompt = `An illustrative infographic of the market for: ${idea}`;
     const imageGen = await openai.images.generate({
       model: "gpt-image-1",
       prompt: imagePrompt,
-      size: "512x512",
-      response_format: "b64_json" // <- important change
+      size: "512x512" // ✅ Removed response_format
     });
-    const base64 = imageGen.data[0].b64_json;
-    const imageUrl = `data:image/png;base64,${base64}`;
+    const imageUrl = imageGen.data[0].url;
 
     // Temporary sample listings
     const listings = [
