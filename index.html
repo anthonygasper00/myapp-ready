@@ -1,119 +1,77 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>My App — Ready</title>
-  <style>
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 40px;
-      background-color: #f5f5dc; /* beige background */
-      color: #333;
-      line-height: 1.6;
-    }
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
+const OpenAI = require('openai');
 
-    h1, h3 {
-      color: #2c2c2c;
-      text-align: center;
-    }
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-    textarea {
-      width: 100%;
-      height: 120px;
-      font-size: 16px;
-      border-radius: 6px;
-      padding: 10px;
-      border: 1px solid #ccc;
-    }
+// Configure OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
-    button {
-      margin-top: 12px;
-      padding: 10px 18px;
-      font-size: 16px;
-      background-color: #4a4a4a;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+// Serve static frontend
+app.use(express.static(path.join(__dirname, 'public')));
 
-    button:hover {
-      background-color: #333;
-    }
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-    #response-container {
-      margin-top: 20px;
-      background: #fffaf0;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+// Simple health check
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-    .listing {
-      display: flex;
-      gap: 10px;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 10px;
-      margin-bottom: 10px;
-    }
-
-    .listing img {
-      width: 100px;
-      height: 100px;
-      object-fit: cover;
-      border-radius: 6px;
-    }
-
-    .listing-details {
-      flex: 1;
-    }
-  </style>
-</head>
-<body>
-  <h1>Submit an Idea</h1>
-  <p>Describe an item or market you’re interested in. The AI will try to return info, listings, and average prices.</p>
-
-  <textarea id="idea" placeholder="Type your idea here..."></textarea><br/>
-  <button id="send">Send</button>
-
-  <div id="response-container">
-    <h3>Response</h3>
-    <div id="out">—</div>
-  </div>
-
-  <script>
-    document.getElementById('send').addEventListener('click', async () => {
-      const idea = document.getElementById('idea').value;
-
-      try {
-        // Call your AI endpoint:
-        const aiRes = await fetch(`/ai?prompt=${encodeURIComponent(idea)}`);
-        const aiData = await aiRes.json();
-
-        // Display text response:
-        const out = document.getElementById('out');
-        out.innerHTML = `<p>${aiData.reply || 'No reply'}</p>`;
-
-        // If AI returns JSON with listings, loop through and render:
-        if (aiData.listings && Array.isArray(aiData.listings)) {
-          aiData.listings.forEach(item => {
-            out.innerHTML += `
-              <div class="listing">
-                <img src="${item.image}" alt="${item.title}">
-                <div class="listing-details">
-                  <strong>${item.title}</strong><br/>
-                  Price: ${item.price}<br/>
-                  <a href="${item.url}" target="_blank">View</a>
-                </div>
-              </div>
-            `;
-          });
-        }
-      } catch (err) {
-        document.getElementById('out').textContent = 'Error: ' + err.message;
-      }
+// Updated AI endpoint to match your new HTML and request better formatting
+app.get('/ai', async (req, res) => {
+  const prompt = req.query.prompt || "Tell me about this market.";
+  try {
+    // Ask OpenAI for structured HTML response
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a helpful market research assistant. 
+Format your response in HTML. Use <h2> or <h3> for subtitles/categories, and <p> for each paragraph. 
+Include clear sections: Market Overview, Demand, Competition, and Pricing Trends.`
+        },
+        { role: "user", content: prompt }
+      ]
     });
-  </script>
-</body>
-</html>
+
+    // Text reply from AI (HTML string)
+    const replyHTML = completion.choices[0].message.content;
+
+    // Temporary sample listings to test front end
+    const listings = [
+      {
+        title: "Sample Item 1",
+        price: "$25.00",
+        image: "https://via.placeholder.com/100",
+        url: "https://example.com/item1"
+      },
+      {
+        title: "Sample Item 2",
+        price: "$40.00",
+        image: "https://via.placeholder.com/100",
+        url: "https://example.com/item2"
+      },
+      {
+        title: "Sample Item 3",
+        price: "$60.00",
+        image: "https://via.placeholder.com/100",
+        url: "https://example.com/item3"
+      }
+    ];
+
+    res.json({ reply: replyHTML, listings });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error contacting OpenAI");
+  }
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server listening on port ${port}`));
