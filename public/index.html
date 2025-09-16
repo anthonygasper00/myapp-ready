@@ -52,33 +52,27 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* Score Bar */
-    #score-wrapper {
-      margin-top: 20px;
-      text-align: center;
-    }
-    #score-label {
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 8px;
-    }
-    #score-bar {
+    /* Score bar */
+    .score-bar-container {
       width: 100%;
-      background: #ddd;
-      border-radius: 8px;
-      overflow: hidden;
-      height: 25px;
-      margin: 0 auto 10px auto;
+      background-color: #ddd;
+      border-radius: 10px;
+      margin: 15px 0;
     }
-    #score-fill {
-      height: 25px;
-      background: linear-gradient(90deg, #4caf50, #8bc34a);
-      width: 0%;
+
+    .score-bar {
+      height: 24px;
+      line-height: 24px;
       color: #fff;
       text-align: center;
-      line-height: 25px;
-      font-weight: bold;
-      transition: width 0.5s ease-in-out;
+      border-radius: 10px;
+    }
+
+    #market-image {
+      display: block;
+      margin: 20px auto;
+      max-width: 512px;
+      border-radius: 8px;
     }
 
     .listing {
@@ -124,13 +118,6 @@
       font-size: 16px;
       margin-top: 8px;
     }
-
-    #market-image {
-      display: block;
-      max-width: 300px;
-      margin: 20px auto;
-      border-radius: 8px;
-    }
   </style>
 </head>
 <body>
@@ -142,29 +129,27 @@
 
   <div id="response-container">
     <h3>Response</h3>
-    <div id="score-wrapper">
-      <div id="score-label">Market Score</div>
-      <div id="score-bar">
-        <div id="score-fill">0%</div>
+
+    <!-- Market Score -->
+    <div id="score-container" style="display:none;">
+      <h3 style="text-align:center;">Market Score</h3>
+      <div class="score-bar-container">
+        <div id="score-bar" class="score-bar"></div>
       </div>
     </div>
-    <img id="market-image" src="" alt="" style="display:none;" />
+
+    <!-- Market Image -->
+    <img id="market-image" src="" alt="Market summary image" style="display:none;">
+
     <div id="out">—</div>
   </div>
 
   <script>
     document.getElementById('send').addEventListener('click', async () => {
       const idea = document.getElementById('idea').value;
-      const fill = document.getElementById('score-fill');
-      const imageEl = document.getElementById('market-image');
-      const out = document.getElementById('out');
-
-      fill.style.width = '0%';
-      fill.textContent = '';
-      imageEl.style.display = 'none';
-      out.innerHTML = 'Loading...';
 
       try {
+        // Call your AI endpoint:
         const aiRes = await fetch('/api/submit_idea', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -172,22 +157,29 @@
         });
         const aiData = await aiRes.json();
 
+        const out = document.getElementById('out');
         out.innerHTML = aiData.reply || '<p>No reply</p>';
 
-        // Animate score bar
+        // Show market score if present
         if (aiData.marketScore) {
-          const score = aiData.marketScore;
-          fill.style.width = `${score}%`;
-          fill.textContent = `${score}%`;
+          const scoreBar = document.getElementById('score-bar');
+          const scoreContainer = document.getElementById('score-container');
+          scoreContainer.style.display = 'block';
+          scoreBar.style.width = aiData.marketScore + '%';
+          scoreBar.style.backgroundColor = 'green';
+          scoreBar.textContent = aiData.marketScore + '%';
         }
 
-        // Show generated image
+        // Show image if present
+        const imgEl = document.getElementById('market-image');
         if (aiData.imageUrl) {
-          imageEl.src = aiData.imageUrl;
-          imageEl.alt = 'Market summary image';
-          imageEl.style.display = 'block';
+          imgEl.src = aiData.imageUrl;
+          imgEl.style.display = 'block';
+        } else {
+          imgEl.style.display = 'none';
         }
 
+        // Render listings
         if (aiData.listings && Array.isArray(aiData.listings)) {
           aiData.listings.forEach(item => {
             out.innerHTML += `
@@ -203,7 +195,7 @@
           });
         }
       } catch (err) {
-        out.textContent = 'Error: ' + err.message;
+        document.getElementById('out').textContent = 'Error: ' + err.message;
       }
     });
   </script>
