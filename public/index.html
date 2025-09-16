@@ -1,96 +1,158 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Market Research Assistant</title>
-  <link rel="stylesheet" href="styles.css"/>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f9f7f1;
-      padding: 20px;
-      max-width: 800px;
-      margin: auto;
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 40px;
+      background-color: #f5f5dc; /* beige background */
+      color: #333;
+      line-height: 1.6;
     }
-    h1, h2 {
+
+    h1, h2, h3 {
+      color: #2c2c2c;
       text-align: center;
     }
-    #response-container {
-      background: #fffce7;
-      padding: 20px;
-      border-radius: 10px;
-      margin-top: 20px;
-    }
-    #score-bar {
+
+    textarea {
       width: 100%;
-      background-color: #ddd;
-      border-radius: 10px;
+      height: 120px;
+      font-size: 16px;
+      border-radius: 6px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
+
+    button {
+      padding: 10px 18px;
+      font-size: 16px;
+      background-color: #4a4a4a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: block;
+      margin: 0 auto;
+    }
+
+    button:hover {
+      background-color: #333;
+    }
+
+    #response-container {
+      margin-top: 20px;
+      background: #fffaf0;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Market Score Bar */
+    #score-bar {
+      height: 24px;
+      background-color: #dcdcdc;
+      border-radius: 12px;
       overflow: hidden;
-      height: 25px;
       margin-bottom: 15px;
     }
     #score-fill {
-      height: 25px;
-      background: linear-gradient(90deg, #4caf50, #8bc34a);
-      color: #fff;
+      height: 100%;
+      background-color: #4CAF50;
+      width: 0%;
       text-align: center;
-      line-height: 25px;
+      color: #fff;
       font-weight: bold;
+      line-height: 24px;
+      transition: width 0.5s;
     }
+
+    .listing {
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .listing img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .listing-details {
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 20px;
+      color: #444;
+    }
+
+    .section-text {
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    #out h2 {
+      font-size: 22px;
+      margin-top: 20px;
+      color: #2c2c2c;
+    }
+
+    #out p {
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
     #market-image {
       display: block;
       margin: 20px auto;
-      max-width: 100%;
-      border-radius: 10px;
-    }
-    #listings {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .listing-card {
-      border: 1px solid #ddd;
-      padding: 10px;
-      border-radius: 8px;
-      text-align: center;
-      background: #fff;
-    }
-    .listing-card img {
-      max-width: 100%;
+      max-width: 512px;
       border-radius: 8px;
     }
   </style>
 </head>
 <body>
   <h1>Market Research Assistant</h1>
+  <p style="text-align:center;">Describe an item or market you’re interested in. The AI will return analysis, listings, and average prices.</p>
 
-  <div>
-    <textarea id="idea-input" rows="3" style="width:100%" placeholder="Enter your product or market idea"></textarea>
-    <button id="submit-btn">Submit</button>
-  </div>
+  <textarea id="idea" placeholder="Enter your product or market idea"></textarea><br/>
+  <button id="send">Analyze</button>
 
-  <div id="response-container" style="display:none;">
-    <h2>Response</h2>
-    <h3>Market Score</h3>
-    <div id="score-bar">
-      <div id="score-fill" style="width:0%;">0%</div>
+  <div id="response-container">
+    <h3>Response</h3>
+    <div id="score-container" style="text-align:center;">
+      <h3>Market Score</h3>
+      <div id="score-bar">
+        <div id="score-fill">0%</div>
+      </div>
     </div>
-    <img id="market-image" src="" alt="Market summary image" />
-    <div id="reply-html"></div>
-    <h3>Sample Listings</h3>
-    <div id="listings"></div>
+    <img id="market-image" src="" alt="Market summary image" style="display:none;">
+    <div id="out">—</div>
   </div>
 
   <script>
-    document.getElementById('submit-btn').addEventListener('click', async () => {
-      const idea = document.getElementById('idea-input').value.trim();
-      if (!idea) return alert('Please enter an idea');
+    document.getElementById('send').addEventListener('click', async () => {
+      const idea = document.getElementById('idea').value;
+      const out = document.getElementById('out');
+      const scoreFill = document.getElementById('score-fill');
+      const imageEl = document.getElementById('market-image');
 
-      const responseContainer = document.getElementById('response-container');
-      responseContainer.style.display = 'block';
-      document.getElementById('reply-html').innerHTML = 'Loading...';
+      out.innerHTML = 'Loading...';
+      scoreFill.style.width = '0%';
+      scoreFill.textContent = '0%';
+      imageEl.style.display = 'none';
 
       try {
         const res = await fetch('/api/submit_idea', {
@@ -100,38 +162,37 @@
         });
         const data = await res.json();
 
-        // Market Score
-        const score = data.marketScore || 0;
-        const fill = document.getElementById('score-fill');
-        fill.style.width = score + '%';
-        fill.textContent = score + '%';
+        out.innerHTML = data.reply || '<p>No reply</p>';
 
-        // Image
-        const marketImage = document.getElementById('market-image');
-        marketImage.src = data.imageUrl || '';
-        marketImage.style.display = data.imageUrl ? 'block' : 'none';
+        // Update score bar
+        if (data.marketScore) {
+          scoreFill.style.width = data.marketScore + '%';
+          scoreFill.textContent = data.marketScore + '%';
+        }
 
-        // HTML reply
-        document.getElementById('reply-html').innerHTML = data.reply || '';
+        // Show AI-generated image
+        if (data.imageUrl) {
+          imageEl.src = data.imageUrl;
+          imageEl.style.display = 'block';
+        }
 
-        // Listings
-        const listingsDiv = document.getElementById('listings');
-        listingsDiv.innerHTML = '';
-        (data.listings || []).forEach(item => {
-          const card = document.createElement('div');
-          card.className = 'listing-card';
-          card.innerHTML = `
-            <img src="${item.image}" alt="${item.title}">
-            <h4>${item.title}</h4>
-            <p>${item.price}</p>
-            <a href="${item.url}" target="_blank">View</a>
-          `;
-          listingsDiv.appendChild(card);
-        });
-
+        // Show listings
+        if (data.listings && Array.isArray(data.listings)) {
+          data.listings.forEach(item => {
+            out.innerHTML += `
+              <div class="listing">
+                <img src="${item.image}" alt="${item.title}">
+                <div class="listing-details">
+                  <div class="section-title">${item.title}</div>
+                  <div class="section-text">Price: ${item.price}</div>
+                  <a href="${item.url}" target="_blank">View Listing</a>
+                </div>
+              </div>
+            `;
+          });
+        }
       } catch (err) {
-        console.error(err);
-        document.getElementById('reply-html').innerHTML = 'Error loading response.';
+        out.textContent = 'Error: ' + err.message;
       }
     });
   </script>
