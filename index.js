@@ -23,41 +23,7 @@ app.get('/', (req, res) => {
 // Simple health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Helper: extract score from HTML
-function extractScore(html) {
-  const match = html.match(/SCORE:(\d{1,3})/i);
-  if (match) {
-    return { 
-      score: parseInt(match[1]), 
-      cleanHtml: html.replace(match[0], '') 
-    };
-  }
-  return { score: null, cleanHtml: html };
-}
-
-// The sample listings
-const sampleListings = [
-  {
-    title: "Sample Item 1",
-    price: "$99",
-    image: "https://via.placeholder.com/150",
-    url: "https://example.com/item1"
-  },
-  {
-    title: "Sample Item 2",
-    price: "$199",
-    image: "https://via.placeholder.com/150",
-    url: "https://example.com/item2"
-  },
-  {
-    title: "Sample Item 3",
-    price: "$299",
-    image: "https://via.placeholder.com/150",
-    url: "https://example.com/item3"
-  }
-];
-
-// POST endpoint — returns structured HTML + score + image
+// Updated POST endpoint — includes image + score
 app.post('/api/submit_idea', async (req, res) => {
   const { idea } = req.body || {};
   if (!idea) {
@@ -65,6 +31,7 @@ app.post('/api/submit_idea', async (req, res) => {
   }
 
   try {
+    // Ask OpenAI for structured HTML + score
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -82,15 +49,51 @@ app.post('/api/submit_idea', async (req, res) => {
     });
 
     let replyHTML = completion.choices[0].message.content;
-    const { score: marketScore, cleanHtml } = extractScore(replyHTML);
-    replyHTML = cleanHtml;
 
-    // Generate an image related to the market idea:
-    const imageUrl = "https://via.placeholder.com/512x512.png?text=" + encodeURIComponent(idea);
+    // Extract SCORE:[number]
+    let scoreMatch = replyHTML.match(/SCORE:(\d{1,3})/i);
+    let marketScore = scoreMatch ? parseInt(scoreMatch[1]) : null;
+    if (scoreMatch) {
+      // Remove SCORE:[number] from HTML content
+      replyHTML = replyHTML.replace(scoreMatch[0], '');
+    }
+
+    // Generate an image related to the market idea (base64):
+    const imagePrompt = `An illustrative infographic of the market for: ${idea}`;
+    const imageGen = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt: imagePrompt,
+      size: "512x512",
+      response_format: "b64_json" // <- important change
+    });
+    const base64 = imageGen.data[0].b64_json;
+    const imageUrl = `data:image/png;base64,${base64}`;
+
+    // Temporary sample listings
+    const listings = [
+      {
+        title: "Sample Item 1",
+        price: "$99",
+        image: "https://via.placeholder.com/150",
+        url: "https://example.com/item1"
+      },
+      {
+        title: "Sample Item 2",
+        price: "$199",
+        image: "https://via.placeholder.com/150",
+        url: "https://example.com/item2"
+      },
+      {
+        title: "Sample Item 3",
+        price: "$299",
+        image: "https://via.placeholder.com/150",
+        url: "https://example.com/item3"
+      }
+    ];
 
     res.json({
       reply: replyHTML,
-      listings: sampleListings,
+      listings,
       marketScore,
       imageUrl
     });
@@ -100,7 +103,7 @@ app.post('/api/submit_idea', async (req, res) => {
   }
 });
 
-// Updated GET endpoint to match POST
+// Same GET endpoint for backward compatibility
 app.get('/ai', async (req, res) => {
   const prompt = req.query.prompt || "Tell me about this market.";
   try {
@@ -112,27 +115,36 @@ app.get('/ai', async (req, res) => {
           content:
             `You are a helpful market research assistant.
              Format your response in HTML with clear <h2> subtitles and <p> paragraphs 
-             for sections such as Market Overview, Demand, Competition, and Pricing Trends. 
-             Also give me at the very end a single integer market score 1-100 in the format 
-             SCORE:[number] with no extra text.`
+             for sections such as Market Overview, Demand, Competition, and Pricing Trends.`
         },
         { role: "user", content: prompt }
       ]
     });
 
-    let replyHTML = completion.choices[0].message.content;
-    const { score: marketScore, cleanHtml } = extractScore(replyHTML);
-    replyHTML = cleanHtml;
+    const replyHTML = completion.choices[0].message.content;
 
-    // Fake image until you wire up real generation
-    const imageUrl = "https://via.placeholder.com/512x512.png?text=" + encodeURIComponent(prompt);
+    const listings = [
+      {
+        title: "Sample Item 1",
+        price: "$99",
+        image: "https://via.placeholder.com/150",
+        url: "https://example.com/item1"
+      },
+      {
+        title: "Sample Item 2",
+        price: "$199",
+        image: "https://via.placeholder.com/150",
+        url: "https://example.com/item2"
+      },
+      {
+        title: "Sample Item 3",
+        price: "$299",
+        image: "https://via.placeholder.com/150",
+        url: "https://example.com/item3"
+      }
+    ];
 
-    res.json({
-      reply: replyHTML,
-      listings: sampleListings,
-      marketScore,
-      imageUrl
-    });
+    res.json({ reply: replyHTML, listings });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error contacting OpenAI");
