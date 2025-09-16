@@ -36,6 +36,8 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      display: block;
+      margin: 0 auto;
     }
 
     button:hover {
@@ -56,6 +58,7 @@
       border-bottom: 1px solid #eee;
       padding-bottom: 10px;
       margin-bottom: 10px;
+      align-items: center;
     }
 
     .listing img {
@@ -63,6 +66,7 @@
       height: 100px;
       object-fit: cover;
       border-radius: 6px;
+      flex-shrink: 0;
     }
 
     .listing-details {
@@ -77,6 +81,17 @@
     }
 
     .section-text {
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    #out h2 {
+      font-size: 22px;
+      margin-top: 20px;
+      color: #2c2c2c;
+    }
+
+    #out p {
       font-size: 16px;
       margin-top: 8px;
     }
@@ -103,7 +118,7 @@
         const aiRes = await fetch(`/ai?prompt=${encodeURIComponent(idea)}`);
         const aiData = await aiRes.json();
 
-        // Show formatted HTML response
+        // Show formatted HTML response from server (with <h2> and <p> tags)
         const out = document.getElementById('out');
         out.innerHTML = aiData.reply || '<p>No reply</p>';
 
