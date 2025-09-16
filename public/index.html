@@ -1,0 +1,40 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My App — Ready</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 40px; }
+    textarea { width: 100%; height: 120px; font-size: 14px; }
+    button { margin-top: 8px; padding: 8px 12px; font-size: 16px; }
+    pre { background: #f6f6f8; padding: 12px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Submit an Idea</h1>
+  <p>This is a ready-to-deploy static frontend served by the same server that provides the API.</p>
+  <textarea id="idea" placeholder="Type your idea here..."></textarea><br/>
+  <button id="send">Send</button>
+  <h3>Response</h3>
+  <pre id="out">—</pre>
+
+  <script>
+    document.getElementById('send').addEventListener('click', async () => {
+      const idea = document.getElementById('idea').value;
+      try {
+        const res = await fetch('/api/submit_idea', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idea })
+        });
+        const data = await res.json();
+        document.getElementById('out').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('out').textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
