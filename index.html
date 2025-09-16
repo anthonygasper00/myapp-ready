@@ -5,31 +5,111 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>My App — Ready</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 40px; }
-    textarea { width: 100%; height: 120px; font-size: 14px; }
-    button { margin-top: 8px; padding: 8px 12px; font-size: 16px; }
-    pre { background: #f6f6f8; padding: 12px; border-radius: 6px; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 40px;
+      background-color: #f5f5dc; /* beige background */
+      color: #333;
+      line-height: 1.6;
+    }
+
+    h1, h3 {
+      color: #2c2c2c;
+      text-align: center;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      font-size: 16px;
+      border-radius: 6px;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 18px;
+      font-size: 16px;
+      background-color: #4a4a4a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #333;
+    }
+
+    #response-container {
+      margin-top: 20px;
+      background: #fffaf0;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .listing {
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    .listing img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .listing-details {
+      flex: 1;
+    }
   </style>
 </head>
 <body>
   <h1>Submit an Idea</h1>
-  <p>This is a ready-to-deploy static frontend served by the same server that provides the API.</p>
+  <p>Describe an item or market you’re interested in. The AI will try to return info, listings, and average prices.</p>
+
   <textarea id="idea" placeholder="Type your idea here..."></textarea><br/>
   <button id="send">Send</button>
-  <h3>Response</h3>
-  <pre id="out">—</pre>
+
+  <div id="response-container">
+    <h3>Response</h3>
+    <div id="out">—</div>
+  </div>
 
   <script>
     document.getElementById('send').addEventListener('click', async () => {
       const idea = document.getElementById('idea').value;
+
       try {
-        const res = await fetch('/api/submit_idea', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idea })
-        });
-        const data = await res.json();
-        document.getElementById('out').textContent = JSON.stringify(data, null, 2);
+        // Call your AI endpoint:
+        const aiRes = await fetch(`/ai?prompt=${encodeURIComponent(idea)}`);
+        const aiData = await aiRes.json();
+
+        // Display text response:
+        const out = document.getElementById('out');
+        out.innerHTML = `<p>${aiData.reply || 'No reply'}</p>`;
+
+        // If AI returns JSON with listings, loop through and render:
+        if (aiData.listings && Array.isArray(aiData.listings)) {
+          aiData.listings.forEach(item => {
+            out.innerHTML += `
+              <div class="listing">
+                <img src="${item.image}" alt="${item.title}">
+                <div class="listing-details">
+                  <strong>${item.title}</strong><br/>
+                  Price: ${item.price}<br/>
+                  <a href="${item.url}" target="_blank">View</a>
+                </div>
+              </div>
+            `;
+          });
+        }
       } catch (err) {
         document.getElementById('out').textContent = 'Error: ' + err.message;
       }
